@@ -9,7 +9,7 @@
 
 ## 它依赖另一个程序，但不包含它
 
-LocalKB 是**客户端**。推理、向量化、知识库存储都在 [Local AI Hub][hub]
+LocalKB 是**客户端**。推理、向量化、知识库存储都在 **Local AI Hub**
 （简称 Runtime）里，LocalKB 只做"扫描 → 解析 → 切块 → 提问 → 溯源"。
 
 ```
@@ -29,13 +29,25 @@ LocalKB 是**客户端**。推理、向量化、知识库存储都在 [Local AI 
 （单实例锁 + 固定数据目录）。装两份会互相争用端口、token 与数据目录，
 而这类问题在用户现场几乎无法排查。所以 LocalKB 只连、不 spawn、不安装。
 
-[hub]: https://github.com/luping-ai/local-ai-runtime
+> ### 关于 Runtime 的获取方式
+>
+> Local AI Hub（Runtime）**不开源**，以免费安装包形式发布；本仓库（LocalKB）
+> 开源，作为"如何用 Runtime + Python SDK 做应用"的参考实现。
+>
+> 安装包发布渠道**尚未开通**（发布前要先解决：代码签名、许可条款、模型许可
+> 告知）。在此之前，本 README 中凡涉及 Runtime 的链接都不指向公开地址。
+>
+> 如果你是通过本仓库学习如何接入 SDK，不需要 Runtime 安装包 ——
+> 装好 Runtime 后 `pip install luping-localai` 即可按本文档开发。
+
+[hub]: # 占位（Runtime 仓库不公开，见上方「关于 Runtime 的获取方式」）
 
 ---
 
 ## 前置条件
 
-1. **已安装 Local AI Hub 并启动**（[下载/安装见它的文档][hub]）。
+1. **已安装 Local AI Hub 并启动**（当前为内测阶段，安装包需单独获取；
+   见上方「关于 Runtime 的获取方式」）。
    未安装时 LocalKB 会正常启动，但会提示"没有检测到 Local AI Hub"
    并给出下载入口——不会假装能用。
 2. Python 3.11+（开发机用 3.12 验证）。
@@ -49,16 +61,15 @@ LocalKB 是**客户端**。推理、向量化、知识库存储都在 [Local AI 
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv
 & .venv\Scripts\python.exe -m pip install -U pip
 
-# 2) 装依赖（清单只有 pyproject.toml 一处）
+# 2) 装依赖（含 SDK，清单只有 pyproject.toml 一处）
 & .venv\Scripts\python.exe -m pip install -e ".[dev]"
 
-# 3) SDK（见下方"依赖哪个版本的 SDK"）
-& .venv\Scripts\python.exe -m pip install `
-    ..\sdk\local-ai-runtime-sdk\python\dist\luping_localai-0.3.0-py3-none-any.whl
-
-# 4) 跑起来
+# 3) 跑起来
 & .venv\Scripts\python.exe -m localkb.app
 ```
+
+第 2 步会从 PyPI 装 `luping-localai`（SDK）。**只在同时改 Runtime 源码时**
+才需要换成本地 wheel，见下。
 
 装包慢或卡住时换镜像：
 
@@ -76,12 +87,12 @@ SDK（`luping-localai`）与 Runtime 一起演进，**不锁精确版本**，只
 （见 `pyproject.toml` 的 `dependencies` 与 `localkb/preflight.py` 的
 `MAX_SDK_VERSION`）。
 
-两个来源，按场景选：
-
 | 场景 | 做法 |
 | --- | --- |
-| 只跑桌面端 | 从 PyPI 装正式版（`pip install "luping-localai>=0.3"`） |
-| 同时改 Runtime | 从本地 wheel 装（上面第 3 步），因为 Runtime 可能已有新契约字段 |
+| **只跑桌面端 / 只想读代码** | 默认即可（第 2 步从 PyPI 装正式版） |
+| **同时改 Runtime** | 从它构建出的本地 wheel 装：`pip install <path>\luping_localai-*.whl` |
+
+第二种情况只对 Runtime 的维护者有意义 —— Runtime 仓库不公开。
 
 **用旧 SDK 配新 Runtime 的典型症状**：溯源页码永远是"未知"。程序不报错，
 只是功能静默降级——所以 `--self-check` 专门检查这一项。
@@ -195,11 +206,11 @@ tests/                381 项
 | 里程碑落地记录 M0~M7 | `docs/修改记录/` |
 | 实测数据（内存、检索耗时、规模标定） | `docs/实测记录/` |
 | 发现的 Runtime 缺陷 | `docs/缺陷记录/` |
-| **Runtime 侧待办** | 在 [Runtime 仓库][hub] 的 `docs/服务端改造增补需求-桌面端配套.md` |
-| **Runtime 改造方案** | 在 [Runtime 仓库][hub] 的 `docs/runtime改造方案-知识库解析下沉.md` |
+| **Runtime 侧待办** | 在 Runtime 仓库内（`docs/服务端改造增补需求-桌面端配套.md`） |
+| **Runtime 改造方案** | 在 Runtime 仓库内（`docs/runtime改造方案-知识库解析下沉.md`） |
 
 最后两份刻意留在 Runtime 仓库：它们的读者是要改 Runtime 的人，放在这边
-只会让两份清单漂移。
+只会让两份清单漂移。**Runtime 仓库目前不公开**，需要时请向维护者索取。
 
 ---
 
@@ -242,7 +253,71 @@ Windows 路径大小写不敏感、但**区分显示**。只存小写会让界�
 | --- | --- | --- |
 | 相似检测对"填空模板"偏严 | 8 个填空版合同只成 2 组而非 1 组 | Runtime 的 `ThresholdShort=2` 是未校准的初值。偏严只会让用户多点几次确认，**不会误入库**。见 `docs/实测记录/20261116-相似阈值对模板文档过严.md` |
 | 首次检索慢 | 10 万块的库首次检索 8.2 秒 | 索引载入的一次性成本（之后 1.7 秒），UI 需提示"正在载入索引" |
-| 未做代码签名 | SmartScreen 拦截首次运行 | 需证书，发布前解决 |
+| **未做代码签名（已决定不买证书）** | 首次运行会弹 SmartScreen 警告 | 见下方「未签名安装包的说明」 |
+
+### 未签名安装包的说明
+
+本项目**不购买代码签名证书**。这是有意的决定：证书（OV 约 $200/年）对本阶段
+的收益不足以覆盖成本 —— 而我们能做的是**把风险降到可核查**，而不是靠一张
+证书让人"感觉安全"。
+
+用户会看到什么：
+
+```
+Windows 已保护你的电脑
+Microsoft Defender SmartScreen 阻止了无法识别的应用启动。
+    [更多信息] → [仍要运行]
+```
+
+**这是正常的，不是中毒**。点「更多信息」→「仍要运行」即可。
+
+#### 怎么自己验证安装包没被篡改
+
+因为不签名，我们就必须提供**可独立核查**的凭据。每次发布都会同时公布：
+
+| 凭据 | 在哪 |
+| --- | --- |
+| 安装包 SHA-256 | Release 说明里，与该版本的 `.exe` 并列 |
+
+核对方法：
+
+```powershell
+# 1) 算出下载到的文件的哈希
+Get-FileHash .\LocalAIHub-x.y.z-setup.exe -Algorithm SHA256
+
+# 2) 与 Release 说明里的值逐字比对
+```
+
+哈希一致 = 文件与构建产物完全一致，没有被替换或注入。
+
+**这比签名弱在哪**：签名能证明"是谁构建的"，哈希只能证明"与我公布的一致"。
+如果发布渠道本身被攻破，两者都会失守 —— 但哈希至少让"下载站偷偷换了包"
+这类中间人替换失效。
+
+> **当前还未接入 CI**：现在的包是本地跑 `tools/package-localkb.ps1` 产出的，
+> 哈希由该脚本算出并写进 `output/LocalKB-<ver>-manifest.json`。接入 CI 之后
+> 才有第三方可见的构建日志 —— 在那之前，"可核查"的范围只到"你手上的文件
+> 与 Release 说明一致"。
+
+#### 如果你想自己从头构建
+
+这是最彻底的一种信任：不信任任何下载，自己编。
+
+```powershell
+git clone https://github.com/luping-ai/local-knowledge-base.git
+cd local-knowledge-base
+# 按 README 的「快速开始」建环境
+powershell -ExecutionPolicy Bypass -File tools\package-localkb.ps1
+```
+
+代价是要装 Python + Inno Setup 6，约 10 分钟。收益是你完全知道跑的是什么。
+
+#### 如果你在企业环境
+
+IT 部门可以用组策略或 `Add-MpPreference -ExclusionPath` 排除本程序，
+或先用上面的哈希核对后再放行。我们不会提供"关闭 Defender"之类的建议 ——
+那是把风险转嫁给用户。
+
 
 ---
 
@@ -250,13 +325,27 @@ Windows 路径大小写不敏感、但**区分显示**。只存小写会让界�
 
 **待定**。本仓库尚未添加 `LICENSE` 文件。
 
-选择时有一个硬约束：PDF 解析用 **PyMuPDF**，它是 **AGPL-3.0 或商业授权**。
+### 一个绕不过去的约束：PyMuPDF 是 AGPL-3.0
 
-| 打算怎么用 | 可选 |
+PDF 解析用 **PyMuPDF**，它只有两种授权：**AGPL-3.0** 或 **商业授权**（付费）。
+
+本仓库既然要开源，实际可选的就两条：
+
+| 方案 | 代价 |
 | --- | --- |
-| 开源发布 | AGPL-3.0（整个项目需 AGPL 兼容） |
-| 内部使用 / 不对外分发 | 与 Runtime 一致：内部专有（见 [Runtime 仓库][hub] 的 `LICENSE`） |
-| 闭源商业分发 | **必须购买 PyMuPDF 商业授权**，或换 `pdfplumber`（MIT，但拿不到字号 → 标题识别降级） |
+| **整体 AGPL-3.0** | 任何基于本仓库修改并**通过网络提供服务**的人，也必须以 AGPL 公开其源码。这是 AGPL 比 GPL 多出来的那一条 |
+| **买 PyMuPDF 商业授权 + 本仓库用宽松许可（如 Apache-2.0）** | 花钱，但允许别人闭源使用本仓库的代码做二次开发 |
+
+**这两个选择对"样板项目"的定位影响很大**：
+
+- 选 AGPL：代码完全开放，但商业公司不敢基于它做闭源产品（法务一律劝退）
+- 选 Apache-2.0 + 买授权：对公司最友好，别人可以照着改、拿走用在自家产品里
+
+如果目标是"让别人参考我们怎么用 SDK"，AGPL 的传染性反而**降低**参考价值 ——
+很多公司内部禁止引入 AGPL 代码。
+
+> **注意**：以上是技术层面的后果，不构成法律意见。真要发布前建议找律师确认
+> AGPL 的网络服务条款是否覆盖本项目形态。
 
 其余依赖都是宽松许可（PySide6 是 LGPLv3，`--onedir` 动态链接通常满足；
 python-docx / openpyxl / python-pptx / watchdog 都是 MIT 或 Apache-2.0）。

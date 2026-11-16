@@ -86,6 +86,27 @@ Source: "{#SourceDir}\install-manifest.json"; DestDir: "{app}"; Flags: ignorever
 Source: "{#SourceDir}\_internal\*"; DestDir: "{app}\_internal"; \
     Flags: ignoreversion recursesubdirs createallsubdirs
 
+; ## 合规文件必须装到 {app} 根目录
+;
+; Apache-2.0 第 4 条：分发时必须附带 LICENSE 与 NOTICE。
+; LGPL（PySide6）：必须附带其许可副本或获取途径。
+;
+; 放在 {app} 根（而不是 _internal）是刻意的：这些文件是给**人**看的。
+; 埋进 _internal 里等于没有——没人会去翻那 44 MB 的依赖目录。
+;
+; ## 为什么用 skipifsourcedoesntexist
+;
+; 这两个文件由 `localkb.spec` 的 datas 打进 dist 目录。如果 spec 被改坏
+; （比如 datas 丢了），ISCC 会直接报错 "Source file does not exist"——
+; 那反而是好事，能立刻发现。但 `-NoTrim` 等调试路径下可能确实没有，
+; 所以这里用 skipifsourcedoesntexist 并在打包脚本里做前置检查。
+Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; \
+    Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#SourceDir}\NOTICE"; DestDir: "{app}"; \
+    Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#SourceDir}\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; \
+    Flags: ignoreversion skipifsourcedoesntexist
+
 [Icons]
 Name: "{group}\LocalKB"; Filename: "{app}\LocalKB.exe"
 Name: "{group}\LocalKB 自检"; Filename: "{cmd}"; \

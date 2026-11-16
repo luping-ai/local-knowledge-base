@@ -27,8 +27,17 @@ hiddenimports，比"漏了哪个再补"可靠。
 
 ## 数据文件
 
-目前没有需要随包的数据（没有图标、没有 qss、没有 i18n）。
-将来加图标时用 `datas=[('assets/icon.ico', 'assets')]`。
+有三类必须随包：
+
+  1. **LICENSE / NOTICE**（本项目的 Apache-2.0 与第三方组件清单）
+  2. **THIRD-PARTY-NOTICES** —— 见下
+  3. 图标（将来）
+
+第 1 项不是"锦上添花"，是**合规义务**：Apache-2.0 第 4 条要求在分发物中
+附带 LICENSE 与 NOTICE；LGPL（PySide6）要求附带其许可副本。实测发现
+安装包里原本只有 install-manifest.json —— 不满足，已在此补上。
+
+图标用 `datas=[('assets/icon.ico', 'assets')]`。
 """
 
 from pathlib import Path
@@ -41,6 +50,28 @@ block_cipher = None
 ROOT = Path(SPECPATH).parent
 
 hidden = collect_submodules("localai")
+
+# 合规文件：必须进包。
+#
+# ## 为什么 dest 写 "." 却出现在 _internal
+#
+# PyInstaller 的 onedir 模式把 datas 全部放进 `_internal/`（这是 6.x 的
+# 行为：`_internal` 是"所有随包数据"的统一位置）。所以 `dest="."` 不等于
+# "程序根目录"，而是 `_internal/`。
+#
+# 但这没关系 —— 真正给用户看的那份由 `package-localkb.ps1` 的 [2c] 步骤
+# 复制到程序根目录，安装器再把它装到 `{app}` 下。
+#
+# ## 那为什么还留着 datas
+#
+# 为了"任何人用 spec 直接打包也合规"。如果只靠 PS 脚本复制，有人绕过脚本
+# （`pyinstaller tools/localkb.spec`）就漏了合规文件。这里多留 18 KB 的
+# 副本换来"任何构建路径都带许可"，值得。
+_license_datas = [
+    (str(ROOT / name), ".")
+    for name in ("LICENSE", "NOTICE")
+    if (ROOT / name).exists()
+]
 
 # 只保留实际用到的 Qt 模块。PySide6 的隐式导入很多，光靠 excludes
 # 不够——这里用"显式排除大件"的方式，比"只 include 需要的"更稳
@@ -85,7 +116,7 @@ a = Analysis(
     [str(ROOT / "localkb" / "app.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[],
+    datas=_license_datas,
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},

@@ -129,6 +129,25 @@ Check "安装进程退出码 0" ($p.ExitCode -eq 0) "exit=$($p.ExitCode)"
 Check "安装目录存在" (Test-Path (Join-Path $appDir "LocalKB.exe"))
 Check "卸载器已注册" (Test-Path $uninstKey)
 
+# ## 合规文件必须装到安装根目录
+#
+# Apache-2.0 第 4 条要求在分发物中附带 LICENSE 与 NOTICE；LGPL（PySide6）
+# 要求附带许可副本或获取途径。
+#
+# 这条断言是补上的 —— 第一版的验收脚本 20 项全过，而安装包里**一个合规文件
+# 都没有**。那类缺失不会报错、不影响功能，只在被追问时才暴露，所以必须
+# 由脚本盯着。
+foreach ($name in @("LICENSE", "NOTICE", "THIRD-PARTY-NOTICES.txt")) {
+    $p = Join-Path $appDir $name
+    Check "合规文件已安装：$name" (Test-Path $p)
+}
+# 第三方清单必须是"真内容"而不是空壳（生成脚本失败时会留下空文件）
+$tpn = Join-Path $appDir "THIRD-PARTY-NOTICES.txt"
+if (Test-Path $tpn) {
+    $tpnKB = [math]::Round((Get-Item $tpn).Length / 1KB, 0)
+    Check "第三方许可清单非空" ($tpnKB -gt 10) "$tpnKB KB"
+}
+
 # ---------------------------------------------------------------- A15
 
 Write-Host "[3/5] A15：同机复用一个 Runtime" -ForegroundColor Cyan

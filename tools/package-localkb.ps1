@@ -197,6 +197,41 @@ if ($SignSubject -ne "") {
     Write-Host "  未签名时 SmartScreen 会拦首次运行（用户需点「更多信息 → 仍要运行」）" -ForegroundColor DarkGray
 }
 
+# ------------------------------------------------------- 2c. 合规文件
+
+# ## 为什么打包流程里必须有这一步
+#
+# Apache-2.0 第 4 条：分发时必须附带 LICENSE 与 NOTICE。
+# LGPL（PySide6）：必须附带其许可副本或获取途径。
+#
+# 这不是可选项。实测发现第一版的安装包里只有 install-manifest.json ——
+# 一个合规文件都没有，而打包"成功"、自检"全过"。这类缺失不会报错，
+# 只在被追问时才暴露。
+#
+# 三步：
+#   1. 生成 THIRD-PARTY-NOTICES.txt（从已安装包的元数据读，不手写）
+#   2. 把它连同 LICENSE / NOTICE 复制进 dist 目录
+#   3. 复制后**校验存在**——不校验的话，下一步的 ISCC 用了
+#      skipifsourcedoesntexist，缺文件也照样编译成功
+
+Write-Host "[2c] 生成合规文件..." -ForegroundColor Cyan
+
+& $py (Join-Path $root "tools\gen-third-party-notices.py")
+if ($LASTEXITCODE -ne 0) { throw "生成第三方许可清单失败" }
+
+$compliance = @("LICENSE", "NOTICE", "THIRD-PARTY-NOTICES.txt")
+foreach ($name in $compliance) {
+    $srcFile = Join-Path $root $name
+    if (-not (Test-Path $srcFile)) { throw "缺少合规文件：$name" }
+    Copy-Item $srcFile (Join-Path $distDir $name) -Force
+}
+foreach ($name in $compliance) {
+    if (-not (Test-Path (Join-Path $distDir $name))) {
+        throw "合规文件没有进 dist 目录：$name"
+    }
+}
+Write-Host "  LICENSE / NOTICE / THIRD-PARTY-NOTICES.txt 已就位" -ForegroundColor Green
+
 # ---------------------------------------------------------------- 3. 冒烟
 
 Write-Host "[3/5] 冒烟测试（启动 → 等窗口 → 关闭）..." -ForegroundColor Cyan

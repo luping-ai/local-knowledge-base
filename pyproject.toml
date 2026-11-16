@@ -22,6 +22,16 @@ name = "localkb"
 version = "0.1.0"
 description = "基于 local-ai-runtime 的个人本地知识库桌面端"
 requires-python = ">=3.11"
+# ## 许可：源码 Apache-2.0，但构建产物另说
+#
+# `license` 这里声明的是**本仓库源码**的许可，用 SPDX 表达式（PEP 639）。
+#
+# 不要因此以为"pip install 之后随便用"就完事 —— 本项目依赖 PyMuPDF
+# （AGPL-3.0 或商业授权），由我们构建并分发的安装包整体受 AGPL 约束。
+# 完整说明见 NOTICE 与 README 的「许可」一节。
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "luping-ai" }]
 dependencies = [
     "PySide6>=6.6",
     "luping-localai>=0.3.0",

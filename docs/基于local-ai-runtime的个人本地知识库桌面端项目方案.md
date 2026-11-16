@@ -2011,17 +2011,49 @@ LocalAIHub 并在说明页告知、注册卸载项与开始菜单（含"自检"�
 正确函数是 `UninstallSilent()`（已用一次性探测脚本实测：`/VERYSILENT` 下返回
 True 且无异常）。
 
-**许可清单**（M1 前必须逐项确认，不只 PDF 库）：
+**许可清单**（逐项确认，不只是 PDF 库）：
 
-| 依赖 | 许可 | 影响 |
+| 依赖 | 版本 | 许可 | 影响 |
+| --- | --- | --- | --- |
+| **PyMuPDF** | 2.1 | **AGPL-3.0 或商业** | 见下方"决定" |
+| PySide6 / shiboken6 | 6.12.0 | LGPL-3.0（或 GPL） | `--onedir` 动态链接满足 LGPL；需允许用户替换 DLL |
+| python-docx | 1.2.0 | MIT | 无 |
+| openpyxl | 3.1.5 | MIT | 无 |
+| python-pptx | 1.0.2 | MIT | 无 |
+| watchdog | 7.1.0 | Apache-2.0 | 无 |
+| luping-localai | 0.3.0 | Apache-2.0 | 无 |
+| Pillow | 13.0.0 | MIT-CMU | 无（python-pptx 的依赖） |
+| lxml | 6.1.3 | BSD-3-Clause | 无 |
+| XlsxWriter | 3.3.1 | BSD-2-Clause | 无 |
+| numpy | 2.5.5 | BSD / 0BSD / MIT / Zlib / CC0 | 无（onnxruntime 的依赖） |
+| onnxruntime | 1.32.0 | MIT | 无（PyMuPDF layout 的依赖） |
+
+#### 决定：**源码用 Apache-2.0，不买 PyMuPDF 商业授权**（2026-11-17）
+
+原写"M1 前必须定"，当时的建议是"内部发行用 PyMuPDF；商业闭源前买授权"。
+实际决定如下：
+
+| 对象 | 许可 | 说明 |
 | --- | --- | --- |
-| PyMuPDF | AGPL-3.0 或商业 | 闭源分发需购买授权，或换 `pdfplumber`（§16 P2） |
-| PySide6 / Qt | LGPLv3 或商业 | `--onedir` 动态链接通常满足 LGPL；改 Qt 源码或静态链接则需开源/买授权 |
-| python-docx | MIT | 无 |
-| openpyxl | MIT | 无 |
-| python-pptx | MIT | 无 |
-| watchdog | Apache-2.0 | 无 |
-| luping-localai | 见 SDK 仓库 LICENSE | 无 |
+| 本仓库**源码** | **Apache-2.0** | 别人可自由闭源二次开发 |
+| **我们构建的安装包** | **AGPL-3.0** | 因为捆了 PyMuPDF |
+
+**这个组合是自洽的，但必须讲清楚**：源码与构建产物是两个对象。前者是
+我们的代码，我们选 Apache-2.0；后者含 AGPL 组件，整体受 AGPL 约束。
+
+**为什么不买授权**：与不买签名证书同一逻辑 —— 现阶段不花钱，把选择权交给
+用户，并用文档把后果说透。
+
+**给用户的三条路**（README「许可」与 `NOTICE` 第四节都写了）：
+
+1. 只分发源码、不分发安装包 → 零成本（内部使用不触发 AGPL 分发义务）
+2. 换掉 PDF 解析库 → 只改 `localkb/parse/pdf.py`
+3. 买 PyMuPDF 商业授权 → 代码不用改
+
+**后续计划（重要）**：把 PDF 解析做成**可替换插件**，接入 MIT/BSD 许可的
+实现。这样用户无需购买任何商业授权即可闭源分发 —— 这才是"开源样板"该有的
+形态。当前的替换点已经收敛：`parse/pdf.py` 只依赖 PyMuPDF 的三个入口
+（`open` / `page.get_text("dict")` / `page.rect`），抽协议时不需要动别处。
 
 ---
 

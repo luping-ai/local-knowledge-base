@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------- Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境（README 里有建法）
+.venv/
+venv/
+
+# 可编辑安装生成的元数据
+localkb.egg-info/
+*.egg-info/
+build/
+dist/
+
+# 测试与 lint 缓存
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------------------------------------------------------------- 打包产物
+#
+# PyInstaller 的 onedir 输出（约 171 MB）与安装包。每次构建重新生成，
+# 进版本库只会让 clone 变慢、让 diff 变吵。
+#
+# 发布走 GitHub Release，不靠提交二进制。
+dist-localkb/
+build-localkb/
+output/
+
+# ---------------------------------------------------------------- 编辑器 / 系统
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------- 本地数据
+#
+# 开发时可能在仓库内产生 state.db（用 `python -m localkb.app` 且改了
+# 数据目录时）。它含用户的扫描路径与对话历史，绝不能提交。
+*.db
+*.db-shm
+*.db-wal

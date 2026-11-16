@@ -1,0 +1,151 @@
+# LocalKB —— 个人本地知识库桌面端
+#
+# ## 仓库边界
+#
+# 这是**独立仓库**（`luping-ai/local-knowledge-base`），前身是
+# `local-ai-runtime` 仓库里的一个并列子项目。2026-11-17 迁出，
+# 原因是两者的发布节奏、依赖栈（Go / Python）、贡献者都不同，
+# 放一个仓库里只会让 CI 越来越难写。
+#
+# 它依赖 Local AI Hub（Runtime）提供推理与向量化，但**不包含** Runtime：
+# 同一台机器只能有一份 Runtime（单实例锁），桌面端只连不 spawn。
+# Runtime 仓库：https://github.com/luping-ai/local-ai-runtime
+#
+# ## 为什么 requires-python 是 3.11
+#
+# 方案 §3 定的是 Python 3.11 + PySide6。开发机是 3.12，两者都能跑；
+# 写 3.11 是为了让 lint 不要推荐 3.12 才有的语法（用户机器上可能装
+# 的是 3.11）。
+
+[project]
+name = "localkb"
+version = "0.1.0"
+description = "基于 local-ai-runtime 的个人本地知识库桌面端"
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.6",
+    "luping-localai>=0.3.0",
+    # 解析库：每种格式一个，没有统一的"Office 解析"包
+    "PyMuPDF>=1.24",       # PDF（AGPL / 商业授权，见方案 §13.5）
+    "python-docx>=1.1",    # DOCX
+    "openpyxl>=3.1",       # XLSX
+    "python-pptx>=0.6",    # PPTX（M6）
+    "watchdog>=4.0",       # 文件变更监听
+]
+
+[project.optional-dependencies]
+# ## 为什么 dev 里有 pytest-timeout
+#
+# 全量测试曾经卡死过一次：CPU 时间停在 16 秒不再增长，整个 `pytest tests`
+# 挂了 11 分钟没有输出。原因是某个用例在等一个**永远不会来的 Qt 信号**，
+# 而测试自己没有任何超时保护——`_pump()` 的循环只按次数退出，如果事件循环
+# 里没有事件可处理它就空转等下去。
+#
+# 加超时后这类问题会变成"某个用例 FAIL + 明确的 traceback"，而不是
+# "CI 挂住，要人去 kill 进程再猜哪个用例"。pyproject 的 addopts 里给了
+# 全局默认值，不需要每次命令行加参数。
+#
+# ## 为什么 dev 里有 pyinstaller 和 psutil
+#
+# **pyinstaller**：`tools/package-localkb.ps1` 要用它。以前它在 Runtime
+# 仓库里是手工 `pip install` 的，没进任何清单——迁移到独立仓库后第一次
+# 打包就报 `No module named PyInstaller`。打包是发布流程的必经步骤，
+# 它不该依赖"某人记得装过"。
+#
+# **psutil**：`tools/bench_memory.py` 与 `tools/bench_scale.py` 用它读
+# 进程 RSS。运行时的产品代码不用它（资源状态全部来自 Runtime 的
+# `/api/v1/resources`），所以放 dev 而不是 dependencies。
+dev = [
+    "pytest>=7.4",
+    "pytest-timeout>=2.3",
+    "ruff>=0.5",
+    "pyinstaller>=6.0",
+    "psutil>=5.9",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# ## 为什么要显式声明 packages（实测踩到的缺陷）
+#
+# README 里写 `pip install -e ".[dev]"`，但仓库根下有多个顶级目录
+# （localkb / tests / tools / docs / cmd …）。setuptools 的自动发现
+# 遇到这种情况**直接报错**：
+#
+#   Multiple top-level packages discovered ... consider the following:
+#   1. set up custom discovery (find directive with include or exclude)
+#   ...
+#   ERROR: Failed to build 'file:///D:/codex/local-ai-runtime'
+#
+# 所以必须明确只打包 localkb 这一个包。不写这条，任何人照 README 做
+# 都会在第一步失败——而错误信息很长且指向 setuptools 文档，很容易
+# 让人以为是环境坏了、去重装 Python。
+#
+# 注意：`packages` 与 `packages.find` 不能同时写（TOML 会报
+# "Cannot declare ... twice"）。用 find + include 更灵活，也自然排除
+# tests/tools/docs。
+
+[tool.setuptools.packages.find]
+include = ["localkb*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 只显示跳过与失败的原因摘要，不打印每个用例名——98 个用例刷屏之后
+# 真正的失败会被挤出视野。
+addopts = "-q --strict-markers"
+# ## 为什么全局设超时（默认 120 秒）
+#
+# 单个用例超过 2 分钟一定是卡住了，不是"慢"。实测遇到过测试等一个永远
+# 不会来的 Qt 信号、进程 CPU 时间停止增长、整个测试跑挂 11 分钟无输出。
+# 有这条之后它会 FAIL 并指出具体用例，而不是让 CI 挂住。
+timeout = 120
+timeout_method = "thread"
+markers = [
+    "live: 需要本机 LocalAIHub 正在运行（无服务时会跳过）",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+# 与 SDK 的目录命名保持一致；构建产物不参与 lint。
+extend-exclude = [".venv", "dist", "build", "__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes：未使用导入/变量、未定义名
+    "E",    # pycodestyle 错误
+    "W",    # pycodestyle 警告
+    "I",    # isort
+    "UP",   # pyupgrade
+    "BLE",  # 裸 except
+    "SIM",  # 可简化写法
+    "RUF",  # ruff 自有规则
+    "PLW",  # pylint 警告子集
+]
+ignore = [
+    # UP045 建议 Optional[X] → X | None。这在本项目里**不适用**：
+    # dataclass 字段用 `Optional[str] = None` 是 SDK 的既有风格，
+    # 改成 X|None 会让"字段可空"在阅读时不够显眼。
+    "UP045",
+    # RUF022 要求 __all__ 排序。按语义分组（探活 / 调用 / 类型）比
+    # 字典序更有用。
+    "RUF022",
+    # UP042 建议 str,Enum → StrEnum。保持与 SDK 一致（SDK 里是
+    # `class X(str, Enum)`），且 `phase == "done"` 这类比较在两种写法下
+    # 行为不同，混用比统一更容易出错。
+    "UP042",
+    # RUF001/002/003 把中文全角标点报成"歧义字符"。本项目的注释、文档串、
+    # 界面文案**全部是中文**，全角标点是正确写法而不是笔误。关掉这三条，
+    # 否则 900+ 条噪音会盖住真正的缺陷。
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试里 `assert` 后跟裸 except、以及为了构造异常场景而"未检查返回值"
+# 是刻意的。
+"tests/*" = ["PLW1510", "SIM115", "BLE001"]
